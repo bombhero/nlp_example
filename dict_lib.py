@@ -20,9 +20,9 @@ def analyze_corpus(file_path, dict_df):
                 continue
             if len(dict_df[dict_df['word'] == word]) == 0:
                 dict_df = dict_df.append({'word': word, 'count': 1}, ignore_index=True)
+                print('Add {}, dict size: {}'.format(word, len(dict_df)))
             else:
                 dict_df.loc[dict_df['word'].isin([word]), 'count'] += 1
-            print('dict size: {}'.format(len(dict_df)))
     fid.close()
 
 
