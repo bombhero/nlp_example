@@ -25,7 +25,7 @@ def analyze_corpus_word(file_path, dict_df):
             if len(word.strip()) == 0:
                 continue
             if len(dict_df[dict_df['word'] == word]) == 0:
-                dict_df = dict_df.append({'word': word, 'count': 1}, ignore_index=True)
+                dict_df = dict_df.append({'word': word, 'count': 1, 'hot': 0}, ignore_index=True)
                 print('Add {}, dict size: {}, total: {}'.format(word, len(dict_df), line_count))
             else:
                 dict_df.loc[dict_df['word'].isin([word]), 'count'] += 1
@@ -48,7 +48,7 @@ def analyze_corpus_letter(file_path, dict_df):
             break
         for idx in range(len(line)):
             if len(dict_df[dict_df['word'] == line[idx]]) == 0:
-                dict_df = dict_df.append({'word': line[idx], 'count': 1}, ignore_index=True)
+                dict_df = dict_df.append({'word': line[idx], 'count': 1, 'hot': 0}, ignore_index=True)
                 print('Add %s, dict size: %d, total: %d' % (line[idx], len(dict_df), line_count))
             else:
                 dict_df.loc[dict_df['word'].isin([line[idx]]), 'count'] += 1
@@ -66,7 +66,11 @@ def create_word_dict_cn(corpus_path, dict_file=None, split_by_word=False, max_wo
     :param max_word:
     :return:
     """
-    dict_df = pd.DataFrame(columns=('word', 'count'))
+    if os.path.exists(dict_file):
+        dict_df = pd.read_csv(dict_file, delimiter=',')
+        dict_df = dict_df.append({'word': 'Nan', 'count': 0, 'hot': 0}, ignore_index=True)
+        return dict_df
+    dict_df = pd.DataFrame(columns=('word', 'count', 'hot'))
     if os.path.isdir(corpus_path):
         file_list = os.listdir(corpus_path)
         for file_name in file_list:
@@ -81,6 +85,9 @@ def create_word_dict_cn(corpus_path, dict_file=None, split_by_word=False, max_wo
             dict_df = analyze_corpus_word(corpus_path, dict_df)
         else:
             dict_df = analyze_corpus_letter(corpus_path, dict_df)
+    dict_df = dict_df.sort_values(by='count', ascending=False)
+    for idx in range(len(dict_df)):
+        dict_df.iloc[idx]['hot'] = idx + 1
     if dict_file is not None:
         dict_df.to_csv(path_or_buf=dict_file, sep=',')
     return dict_df
