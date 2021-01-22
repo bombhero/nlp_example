@@ -1,9 +1,14 @@
+"""
+    Generate the document by LSTM model.
+"""
 import os
 import time
 import torch
 import random
 import numpy as np
 from torch.utils.data import DataLoader, Dataset
+from dict_lib import DictWordVec
+from torch.utils.tensorboard import SummaryWriter
 
 from dict_lib import create_word_dict_cn
 
@@ -12,31 +17,6 @@ dict_path = './dict/letter_dict.csv'
 example_path = './example/zenghuanzuang.csv'
 model_path = './model/robot_writer.pkl'
 line_limit = 0
-
-
-class DictWordVec:
-    def __init__(self, corpus, dict_file):
-        self.dict_df = create_word_dict_cn(corpus, dict_file)
-        self.dim_x = len(self.dict_df)
-
-    def trans_word_to_vec(self, word):
-        tmp_df = self.dict_df[self.dict_df['word'] == word]
-        if len(tmp_df) == 0:
-            word_hot = 0
-        else:
-            word_hot = tmp_df.iloc[0]['hot']
-        return word_hot
-
-    def trans_vec_to_word(self, word_vec):
-        tmp_df = self.dict_df[self.dict_df['hot'] == word_vec]
-        if len(tmp_df) == 0:
-            word = ''
-        else:
-            word = tmp_df.iloc[0]['word']
-        return word
-
-    def get_dim_x(self):
-        return self.dim_x
 
 
 class TrainDataset(Dataset):
@@ -220,5 +200,11 @@ def predict(first_sentence):
 
 
 if __name__ == '__main__':
-    train()
+    # train()
     predict('不知道')
+    # rand_seq = [np.random.randint(0, 4500) for _ in range(100)]
+    # seq = torch.tensor([rand_seq])
+    # y = torch.tensor([[5]])
+    # tensor_summary = SummaryWriter('./tensor_log')
+    # writer_nn = WriterNN(4500)
+    # tensor_summary.add_graph(writer_nn, [seq, y, None, None])

@@ -93,6 +93,31 @@ def create_word_dict_cn(corpus_path, dict_file=None, split_by_word=False, max_wo
     return dict_df
 
 
+class DictWordVec:
+    def __init__(self, corpus, dict_file):
+        self.dict_df = create_word_dict_cn(corpus, dict_file)
+        self.dim_x = len(self.dict_df)
+
+    def trans_word_to_vec(self, word):
+        tmp_df = self.dict_df[self.dict_df['word'] == word]
+        if len(tmp_df) == 0:
+            word_hot = 0
+        else:
+            word_hot = tmp_df.iloc[0]['hot']
+        return word_hot
+
+    def trans_vec_to_word(self, word_vec):
+        tmp_df = self.dict_df[self.dict_df['hot'] == word_vec]
+        if len(tmp_df) == 0:
+            word = ''
+        else:
+            word = tmp_df.iloc[0]['word']
+        return word
+
+    def get_dim_x(self):
+        return self.dim_x
+
+
 if __name__ == '__main__':
     tst_df = create_word_dict_cn(corpus_path='C:/bomb/book/ML/NLP/zenghuanzuang.txt', dict_file='c:/tmp/letter.csv')
     tst_df.to_csv(path_or_buf=dict_path, sep=',')
