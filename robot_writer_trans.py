@@ -22,6 +22,18 @@ class PositionalEncoding(torch.nn.Module):
         return self.dropout(x)
 
 
+class WriterNN(torch.nn.Module):
+    def __init__(self, dim_x):
+        super(WriterNN, self).__init__()
+        hidden_dim = 512
+        self.emb = torch.nn.Embedding(num_embeddings=dim_x, embedding_dim=hidden_dim)
+        self.position = PositionalEncoding(hidden_dim)
+        pass
+
+    def forward(self):
+        pass
+
+
 if __name__ == '__main__':
     pos = PositionalEncoding(512)
     matrix = pos.pe.numpy()[:, 0, :]

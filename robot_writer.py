@@ -9,87 +9,23 @@ import numpy as np
 from torch.utils.data import DataLoader, Dataset
 from dict_lib import DictWordVec
 from torch.utils.tensorboard import SummaryWriter
-
 from dict_lib import create_word_dict_cn
+from writer_data import TrainDataset
 
 corpus_path = './corpus/zenghuanzuang.txt'
 dict_path = './dict/letter_dict.csv'
 example_path = './example/zenghuanzuang.csv'
 model_path = './model/robot_writer.pkl'
-line_limit = 0
-
-
-class TrainDataset(Dataset):
-    def __init__(self, corpus, dict_file, storage_path, seq_len=50, max_word=10000):
-        self.corpus = corpus
-        self.dict = create_word_dict_cn(corpus, dict_file)
-        self.dim_x = len(self.dict)
-        self.seq_len = seq_len
-        self.slot = 5
-        if os.path.exists(storage_path):
-            self.data = np.loadtxt(storage_path, delimiter=',')
-        else:
-            self.data = self.create_data_x()
-            np.savetxt(fname=example_path, X=self.data, delimiter=',', fmt='%d')
-        print('Dataset created {}'.format(self.data.shape[0]))
-
-    def __getitem__(self, index):
-        """
-        得到训练样本
-        前seq_len个汉字为输入,后1个汉字为输出.
-        一个样本为seq_len+1个汉字.
-        :param index:
-        :return:
-        """
-        index = index * self.slot
-        seq_x = torch.LongTensor(self.data[index:(index+self.seq_len)])
-        seq_y = torch.LongTensor(self.data[(index+self.seq_len):(index+self.seq_len+1)])
-        return seq_x, seq_y
-
-    def __len__(self):
-        # return int((self.data.shape[0] - self.seq_len) / self.slot)
-        return 1280
-
-    def create_data_x(self):
-        line_count = 0
-        data_x = None
-        fid = open(self.corpus, encoding='utf-8')
-        while True:
-            line = fid.readline()
-            if not line:
-                break
-            line = line.strip()
-            if len(line) == 0:
-                continue
-            line_count += 1
-            print('Analyze {}'.format(line_count))
-            if (line_count >= line_limit) and (line_limit > 0):
-                break
-            for idx in range(len(line)):
-                tmp_df = self.dict[self.dict['word'] == line[idx]]
-                if len(tmp_df) == 0:
-                    word_hot = 0
-                else:
-                    word_hot = tmp_df.iloc[0]['hot']
-                word_vec = np.array([word_hot])
-                if data_x is None:
-                    data_x = word_vec
-                else:
-                    data_x = np.concatenate((data_x, word_vec), axis=0)
-        fid.close()
-        return data_x
-
-    def get_dim_x(self):
-        return self.dim_x
 
 
 class WriterNN(torch.nn.Module):
     def __init__(self, dim_x):
         super(WriterNN, self).__init__()
-        self.emb = torch.nn.Embedding(num_embeddings=dim_x, embedding_dim=1000)
-        self.rnn = torch.nn.LSTM(input_size=1000, hidden_size=1000, num_layers=5, batch_first=True)
-        self.rnn1 = torch.nn.LSTM(input_size=1000, hidden_size=1000, num_layers=5, batch_first=True)
-        self.rnn2 = torch.nn.LSTM(input_size=1000, hidden_size=1000, num_layers=5, batch_first=True)
+        hidden_dim = 1024
+        self.emb = torch.nn.Embedding(num_embeddings=dim_x, embedding_dim=hidden_dim)
+        self.rnn = torch.nn.LSTM(input_size=hidden_dim, hidden_size=hidden_dim, num_layers=3, batch_first=True)
+        self.rnn1 = torch.nn.LSTM(input_size=hidden_dim, hidden_size=hidden_dim, num_layers=3, batch_first=True)
+        self.rnn2 = torch.nn.LSTM(input_size=hidden_dim, hidden_size=hidden_dim, num_layers=3, batch_first=True)
 
     def forward(self, x, y, h, c):
         vec_x = self.emb(x)
@@ -116,6 +52,7 @@ def select_device():
 
 
 def train():
+    tmp_model_path = './model/robot_writer_tmp.pkl'
     device = select_device()
     train_data = TrainDataset(corpus=corpus_path, dict_file=dict_path, storage_path=example_path, seq_len=50)
     train_loader = DataLoader(dataset=train_data, batch_size=128, shuffle=True, num_workers=4)
@@ -124,10 +61,13 @@ def train():
 
     optimizer = torch.optim.Adam(writer_nn.parameters(), lr=0.01)
     loss_func = torch.nn.MSELoss()
-    for epoch in range(5):
+    total_loss_list = []
+    show_letter = ['-', '\\', '|', '/']
+    for epoch in range(1000):
         start_ts = time.time()
         writer_nn.train()
         total_idx = int(len(train_data) / 128)
+        total_loss = 0
         for idx, data in enumerate(train_loader):
             tensor_x, tensor_y = data
             h_out = None
@@ -140,20 +80,27 @@ def train():
             c_out = c_out.data
             loss = loss_func(output, vec_y)
             record_loss = loss.data.cpu()
+            total_loss += record_loss
             loss.backward()
             optimizer.step()
-            print('{}:{}/{}: loss= {}'.format(epoch, idx, total_idx, record_loss))
+            if total_idx < 20:
+                print('{}:{}/{}: loss= {}'.format(epoch, idx, total_idx, record_loss))
+            else:
+                print("{}{}".format(idx, show_letter[idx % len(show_letter)]), end='\r')
         end_ts = time.time()
-        print('{} Spent {}'.format(epoch, (end_ts - start_ts)))
-
-    torch.save(writer_nn, model_path)
+        print('{} Spent {}, loss={}'.format(epoch, (end_ts - start_ts), total_loss))
+        if len(total_loss_list) == 0 or total_loss < total_loss_list[-1]:
+            total_loss_list.append(total_loss)
+            torch.save(writer_nn, model_path)
+        else:
+            break
 
 
 def select_one_word(prob_seq):
     num = random.random()
     seq = []
     total = 0
-    prob_seq = np.power(prob_seq, 1/0.4)
+    prob_seq = np.power(prob_seq, 1/0.8)
     prob_seq = prob_seq / np.sum(prob_seq)
     for idx in range(prob_seq.shape[0]):
         total += prob_seq[idx, 0]
