@@ -6,11 +6,12 @@ import time
 import torch
 import random
 import numpy as np
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from dict_lib import DictWordVec
 from torch.utils.tensorboard import SummaryWriter
 from dict_lib import create_word_dict_cn
 from writer_data import TrainDataset
+from cuda_utils import select_device
 
 corpus_path = './corpus/zenghuanzuang.txt'
 dict_path = './dict/letter_dict.csv'
@@ -41,14 +42,6 @@ class WriterNN(torch.nn.Module):
     def un_emb(self, vec):
         # return torch.argmax(self.emb.weight.matmul(vec.t()), dim=0)
         return torch.nn.functional.softmax(self.emb.weight.matmul(vec.t()), dim=0)
-
-
-def select_device():
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    else:
-        device = torch.device("cpu")
-    return device
 
 
 def train():
@@ -148,10 +141,4 @@ def predict(first_sentence):
 
 if __name__ == '__main__':
     # train()
-    predict('不知道')
-    # rand_seq = [np.random.randint(0, 4500) for _ in range(100)]
-    # seq = torch.tensor([rand_seq])
-    # y = torch.tensor([[5]])
-    # tensor_summary = SummaryWriter('./tensor_log')
-    # writer_nn = WriterNN(4500)
-    # tensor_summary.add_graph(writer_nn, [seq, y, None, None])
+    predict('狼')
